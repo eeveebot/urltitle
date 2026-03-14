@@ -1,0 +1,15 @@
+# URL Title Module Configuration
+
+# Enable or disable the module
+enabled: true
+
+# Rate limiting configuration
+ratelimit:
+  # Mode can be 'enqueue' or 'drop'
+  mode: drop
+  # Level can be 'channel', 'user', or 'global'
+  level: channel
+  # Number of requests allowed
+  limit: 3
+  # Time interval (e.g., "30s", "1m", "5m")
+  interval: 1m
