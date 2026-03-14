@@ -75,13 +75,26 @@ export function colorizeUrlTitle(text: string, platform: string): string {
   return text;
 }
 
+interface YouTubeElements {
+  title: string;
+  date: string;
+  views: string;
+  likes: string;
+  duration: string;
+}
+
 /**
- * Colorize YouTube title with enhanced formatting
- * @param title YouTube video title
+ * Colorize YouTube title with enhanced formatting and individual colors per element
+ * @param title Formatted YouTube video title with elements
  * @param platform Platform identifier
+ * @param elements Individual YouTube elements for granular colorization
  * @returns Colorized title if platform is IRC, otherwise original title
  */
-export function colorizeYouTubeTitle(title: string, platform: string): string {
+export function colorizeYouTubeTitle(
+  title: string, 
+  platform: string, 
+  elements?: YouTubeElements
+): string {
   log.debug('colorizeYouTubeTitle called', {
     producer: 'urltitle',
     title: title,
@@ -91,7 +104,34 @@ export function colorizeYouTubeTitle(title: string, platform: string): string {
   // Only apply colorization for IRC platform
   if (platform === 'irc') {
     try {
-      // Use cyan for YouTube titles
+      // If we have individual elements, apply different colors to each
+      if (elements) {
+        // Split the title into parts
+        const parts = title.split(' | ');
+        if (parts.length === 5) {
+          // Apply different colors to each element:
+          // Title - cyan, Date - yellow, Views - green, Likes - red, Duration - purple
+          const coloredParts = [
+            safeColorFunctions.cyan ? safeColorFunctions.cyan(parts[0]) : parts[0],
+            safeColorFunctions.yellow ? safeColorFunctions.yellow(parts[1]) : parts[1],
+            safeColorFunctions.green ? safeColorFunctions.green(parts[2]) : parts[2],
+            safeColorFunctions.red ? safeColorFunctions.red(parts[3]) : parts[3],
+            safeColorFunctions.purple ? safeColorFunctions.purple(parts[4]) : parts[4]
+          ];
+          
+          const coloredText = coloredParts.join(' | ');
+          
+          log.debug('Successfully colorized YouTube title elements for IRC', {
+            producer: 'urltitle',
+            originalTitle: title,
+            coloredText: coloredText,
+          });
+          
+          return coloredText;
+        }
+      }
+      
+      // Fallback to simple colorization if elements not provided
       const colorFunction = safeColorFunctions.cyan;
       
       // Safety check to ensure we have a valid function

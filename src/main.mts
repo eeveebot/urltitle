@@ -296,11 +296,20 @@ async function fetchYouTubeDetails(videoId: string, platform: string = 'irc'): P
           ? formatDuration(contentDetails.duration)
           : 'N/A';
 
-        // Create compact one-line output
-        const youtubeInfo = `${title} | ${date} | ${views} views | ${likes} likes | ${duration}`;
+        // Create structured output with individual elements
+        const youtubeElements = {
+          title: title,
+          date: date,
+          views: views,
+          likes: likes,
+          duration: duration
+        };
+
+        // Create formatted output with infographic elements
+        const youtubeInfo = `${title} | 📅 ${date} | 👁️ ${views} | 👍 ${likes} | ⏱️ ${duration}`;
 
         // Colorize the YouTube info based on platform
-        const coloredYoutubeInfo = colorizeYouTubeTitle(youtubeInfo, platform);
+        const coloredYoutubeInfo = colorizeYouTubeTitle(youtubeInfo, platform, youtubeElements);
 
         resolve(coloredYoutubeInfo);
       } catch (err) {
@@ -363,15 +372,13 @@ async function fetchUrlTitle(url: string, platform: string = 'irc'): Promise<str
     if (videoId && youtubeApiKey) {
       const youtubeDetails = await fetchYouTubeDetails(videoId, platform);
       if (youtubeDetails) {
-        // Colorize the YouTube title
-        const coloredYoutubeDetails = colorizeYouTubeTitle(youtubeDetails, platform);
-        
+        // YouTube details are already colorized in fetchYouTubeDetails
         // Cache the result
         titleCache.set(normalizedUrl, {
-          title: coloredYoutubeDetails,
+          title: youtubeDetails,
           timestamp: Date.now(),
         });
-        return coloredYoutubeDetails;
+        return youtubeDetails;
       }
     }
 
