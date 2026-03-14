@@ -15,6 +15,29 @@ const YouTube = require('youtube-node');
 // Record module startup time for uptime tracking
 const moduleStartTime = Date.now();
 
+// Periodic cache cleanup function
+function cleanupExpiredCache(): void {
+  const now = Date.now();
+  let cleanedCount = 0;
+  
+  for (const [url, entry] of titleCache.entries()) {
+    if (now - entry.timestamp >= CACHE_DURATION) {
+      titleCache.delete(url);
+      cleanedCount++;
+    }
+  }
+  
+  if (cleanedCount > 0) {
+    log.debug('Cleaned expired cache entries', {
+      producer: 'urltitle',
+      count: cleanedCount,
+    });
+  }
+}
+
+// Run cache cleanup every 5 minutes
+setInterval(cleanupExpiredCache, 5 * 60 * 1000);
+
 const urlTitleBroadcastUUID = 'b8f0c9a4-5e1d-4f2a-9c3b-7d8e1f2a3b4c';
 const urlTitleBroadcastDisplayName = 'urltitle';
 
@@ -31,6 +54,16 @@ interface UrlTitleConfig {
   ratelimit?: RateLimitConfig;
   enabled?: boolean;
 }
+
+// Cache entry interface
+interface CacheEntry {
+  title: string;
+  timestamp: number;
+}
+
+// In-memory cache for URL titles
+const titleCache = new Map<string, CacheEntry>();
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 const natsClients: InstanceType<typeof NatsClient>[] = [];
 const natsSubscriptions: Array<Promise<string | boolean>> = [];
@@ -291,25 +324,46 @@ function extractUrls(text: string): string[] {
 }
 
 /**
- * Fetch title from URL
+ * Fetch title from URL with caching
  * @param url URL to fetch title from
  * @returns Title of the page or null if failed
  */
 async function fetchUrlTitle(url: string): Promise<string | null> {
   try {
+    // Add URL if it doesn't have a protocol
+    let normalizedUrl = url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      normalizedUrl = `https://${url}`;
+    }
+
+    // Check cache first
+    const cachedEntry = titleCache.get(normalizedUrl);
+    if (cachedEntry) {
+      const now = Date.now();
+      if (now - cachedEntry.timestamp < CACHE_DURATION) {
+        log.debug('Returning cached title for URL', {
+          producer: 'urltitle',
+          url: normalizedUrl,
+        });
+        return cachedEntry.title;
+      } else {
+        // Expired cache entry, remove it
+        titleCache.delete(normalizedUrl);
+      }
+    }
+
     // Check if this is a YouTube URL first
     const videoId = getYouTubeVideoId(url);
     if (videoId && youtubeApiKey) {
       const youtubeDetails = await fetchYouTubeDetails(videoId);
       if (youtubeDetails) {
+        // Cache the result
+        titleCache.set(normalizedUrl, {
+          title: youtubeDetails,
+          timestamp: Date.now(),
+        });
         return youtubeDetails;
       }
-    }
-
-    // Add URL if it doesn't have a protocol
-    let normalizedUrl = url;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      normalizedUrl = `https://${url}`;
     }
 
     const response = await fetch(normalizedUrl, {
@@ -364,6 +418,12 @@ async function fetchUrlTitle(url: string): Promise<string | null> {
       if (title.length > 200) {
         title = title.substring(0, 200) + '...';
       }
+
+      // Cache the result
+      titleCache.set(normalizedUrl, {
+        title: title,
+        timestamp: Date.now(),
+      });
 
       return title;
     }
