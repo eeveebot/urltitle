@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import * as yaml from 'js-yaml';
 import { NatsClient, log } from '@eeveebot/libeevee';
 import { fetch } from 'undici';
+import { colorizeUrlTitle, colorizeYouTubeTitle } from './utils/colorize.mjs';
 
 const require = createRequire(import.meta.url);
 const YouTube = require('youtube-node');
@@ -251,9 +252,10 @@ interface YouTubeResponse {
 /**
  * Fetch YouTube video details
  * @param videoId YouTube video ID
+ * @param platform Platform identifier for colorization
  * @returns Formatted video details or null if failed
  */
-async function fetchYouTubeDetails(videoId: string): Promise<string | null> {
+async function fetchYouTubeDetails(videoId: string, platform: string = 'irc'): Promise<string | null> {
   return new Promise((resolve) => {
     if (!youtubeApiKey) {
       resolve(null);
@@ -297,7 +299,10 @@ async function fetchYouTubeDetails(videoId: string): Promise<string | null> {
         // Create compact one-line output
         const youtubeInfo = `${title} | ${date} | ${views} views | ${likes} likes | ${duration}`;
 
-        resolve(youtubeInfo);
+        // Colorize the YouTube info based on platform
+        const coloredYoutubeInfo = colorizeYouTubeTitle(youtubeInfo, platform);
+
+        resolve(coloredYoutubeInfo);
       } catch (err) {
         log.debug('Error processing YouTube video details', {
           producer: 'urltitle',
@@ -326,9 +331,10 @@ function extractUrls(text: string): string[] {
 /**
  * Fetch title from URL with caching
  * @param url URL to fetch title from
+ * @param platform Platform identifier for colorization
  * @returns Title of the page or null if failed
  */
-async function fetchUrlTitle(url: string): Promise<string | null> {
+async function fetchUrlTitle(url: string, platform: string = 'irc'): Promise<string | null> {
   try {
     // Add URL if it doesn't have a protocol
     let normalizedUrl = url;
@@ -355,14 +361,17 @@ async function fetchUrlTitle(url: string): Promise<string | null> {
     // Check if this is a YouTube URL first
     const videoId = getYouTubeVideoId(url);
     if (videoId && youtubeApiKey) {
-      const youtubeDetails = await fetchYouTubeDetails(videoId);
+      const youtubeDetails = await fetchYouTubeDetails(videoId, platform);
       if (youtubeDetails) {
+        // Colorize the YouTube title
+        const coloredYoutubeDetails = colorizeYouTubeTitle(youtubeDetails, platform);
+        
         // Cache the result
         titleCache.set(normalizedUrl, {
-          title: youtubeDetails,
+          title: coloredYoutubeDetails,
           timestamp: Date.now(),
         });
-        return youtubeDetails;
+        return coloredYoutubeDetails;
       }
     }
 
@@ -494,16 +503,19 @@ const urlTitleBroadcastSub = nats.subscribe(
       // Process each URL
       for (const url of urls) {
         // Fetch the title for this URL
-        const title = await fetchUrlTitle(url);
+        const title = await fetchUrlTitle(url, data.platform);
 
         // If we got a title, send it to the channel
         if (title) {
+          // Colorize the title based on platform
+          const coloredTitle = colorizeUrlTitle(`Title: ${title}`, data.platform);
+          
           const response = {
             channel: data.channel,
             network: data.network,
             instance: data.instance,
             platform: data.platform,
-            text: `Title: ${title}`,
+            text: coloredTitle,
             trace: data.trace,
             type: 'message.outgoing',
           };
