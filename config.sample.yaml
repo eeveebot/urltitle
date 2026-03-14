@@ -1,7 +1,0 @@
-# URL Title module configuration
-
-# Optional: Custom user agent for HTTP requests
-# userAgent: "Custom Bot Name 1.0"
-
-# Optional: Timeout for HTTP requests in milliseconds
-# timeout: 5000
