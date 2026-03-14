@@ -3,10 +3,14 @@
 // URL Title module
 // Listens for messages containing URLs and fetches their titles
 
+import { createRequire } from 'node:module';
 import fs from 'node:fs';
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 import { NatsClient, log } from '@eeveebot/libeevee';
 import { fetch } from 'undici';
+
+const require = createRequire(import.meta.url);
+const YouTube = require('youtube-node');
 
 // Record module startup time for uptime tracking
 const moduleStartTime = Date.now();
@@ -116,6 +120,156 @@ if (urlTitleConfig.enabled === false) {
   process.exit(0);
 }
 
+// Initialize YouTube client
+const youtube = new YouTube();
+const youtubeApiKey = process.env.YOUTUBE_API_KEY;
+if (youtubeApiKey) {
+  youtube.setKey(youtubeApiKey);
+}
+
+/**
+ * Check if URL is a YouTube video
+ * @param url URL to check
+ * @returns YouTube video ID if URL is a YouTube video, null otherwise
+ */
+function getYouTubeVideoId(url: string): string | null {
+  const youtubeRegex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
+  const match = url.match(youtubeRegex);
+  return match ? match[1] : null;
+}
+
+/**
+ * Format duration from ISO 8601 format to human readable format
+ * @param duration ISO 8601 duration string
+ * @returns Formatted duration string
+ */
+function formatDuration(duration: string): string {
+  // Remove PT prefix
+  const dur = duration.replace('PT', '');
+  
+  // Extract hours, minutes, seconds
+  const hoursMatch = dur.match(/(\d+)H/);
+  const minutesMatch = dur.match(/(\d+)M/);
+  const secondsMatch = dur.match(/(\d+)S/);
+  
+  const hours = hoursMatch ? parseInt(hoursMatch[1], 10) : 0;
+  const minutes = minutesMatch ? parseInt(minutesMatch[1], 10) : 0;
+  const seconds = secondsMatch ? parseInt(secondsMatch[1], 10) : 0;
+  
+  // Format as HH:MM:SS or MM:SS
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  } else {
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+}
+
+/**
+ * Format large numbers with K (thousands) or M (millions) suffix
+ * @param num Number to format
+ * @returns Formatted number string
+ */
+function formatNumber(num: number): string {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'M';
+  } else if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'K';
+  } else {
+    return num.toString();
+  }
+}
+
+/**
+ * Format date to a more readable format
+ * @param date ISO date string
+ * @returns Formatted date string
+ */
+function formatDate(date: string): string {
+  return new Date(date).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+// YouTube API response types
+interface YouTubeVideoItem {
+  id: string;
+  snippet: {
+    title: string;
+    publishedAt: string;
+  };
+  statistics: {
+    viewCount?: string;
+    likeCount?: string;
+    dislikeCount?: string;
+    commentCount?: string;
+  };
+  contentDetails: {
+    duration?: string;
+  };
+}
+
+interface YouTubeResponse {
+  items: YouTubeVideoItem[];
+}
+
+/**
+ * Fetch YouTube video details
+ * @param videoId YouTube video ID
+ * @returns Formatted video details or null if failed
+ */
+async function fetchYouTubeDetails(videoId: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (!youtubeApiKey) {
+      resolve(null);
+      return;
+    }
+
+    youtube.getById(videoId, (error: Error, result: YouTubeResponse) => {
+      if (error) {
+        log.debug('Failed to fetch YouTube video details', {
+          producer: 'urltitle',
+          videoId,
+          error: error.message,
+        });
+        resolve(null);
+        return;
+      }
+
+      try {
+        const item = result.items[0];
+        if (!item) {
+          resolve(null);
+          return;
+        }
+
+        const snippet = item.snippet;
+        const statistics = item.statistics;
+        const contentDetails = item.contentDetails;
+
+        const title = snippet.title;
+        const date = formatDate(snippet.publishedAt);
+        const views = statistics.viewCount ? formatNumber(parseInt(statistics.viewCount, 10)) : 'N/A';
+        const likes = statistics.likeCount ? formatNumber(parseInt(statistics.likeCount, 10)) : 'N/A';
+        const duration = contentDetails.duration ? formatDuration(contentDetails.duration) : 'N/A';
+
+        // Create compact one-line output
+        const youtubeInfo = `🎵 ${title} | ${date} | ${views} views | ${likes} likes | ${duration}`;
+
+        resolve(youtubeInfo);
+      } catch (err) {
+        log.debug('Error processing YouTube video details', {
+          producer: 'urltitle',
+          videoId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        resolve(null);
+      }
+    });
+  });
+}
+
 /**
  * Extract URLs from text
  * @param text Text to search for URLs
@@ -135,6 +289,15 @@ function extractUrls(text: string): string[] {
  */
 async function fetchUrlTitle(url: string): Promise<string | null> {
   try {
+    // Check if this is a YouTube URL first
+    const videoId = getYouTubeVideoId(url);
+    if (videoId && youtubeApiKey) {
+      const youtubeDetails = await fetchYouTubeDetails(videoId);
+      if (youtubeDetails) {
+        return youtubeDetails;
+      }
+    }
+
     // Add URL if it doesn't have a protocol
     let normalizedUrl = url;
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
