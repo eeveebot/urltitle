@@ -133,7 +133,8 @@ if (youtubeApiKey) {
  * @returns YouTube video ID if URL is a YouTube video, null otherwise
  */
 function getYouTubeVideoId(url: string): string | null {
-  const youtubeRegex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
+  const youtubeRegex =
+    /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
   const match = url.match(youtubeRegex);
   return match ? match[1] : null;
 }
@@ -146,16 +147,16 @@ function getYouTubeVideoId(url: string): string | null {
 function formatDuration(duration: string): string {
   // Remove PT prefix
   const dur = duration.replace('PT', '');
-  
+
   // Extract hours, minutes, seconds
   const hoursMatch = dur.match(/(\d+)H/);
   const minutesMatch = dur.match(/(\d+)M/);
   const secondsMatch = dur.match(/(\d+)S/);
-  
+
   const hours = hoursMatch ? parseInt(hoursMatch[1], 10) : 0;
   const minutes = minutesMatch ? parseInt(minutesMatch[1], 10) : 0;
   const seconds = secondsMatch ? parseInt(secondsMatch[1], 10) : 0;
-  
+
   // Format as HH:MM:SS or MM:SS
   if (hours > 0) {
     return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
@@ -250,9 +251,15 @@ async function fetchYouTubeDetails(videoId: string): Promise<string | null> {
 
         const title = snippet.title;
         const date = formatDate(snippet.publishedAt);
-        const views = statistics.viewCount ? formatNumber(parseInt(statistics.viewCount, 10)) : 'N/A';
-        const likes = statistics.likeCount ? formatNumber(parseInt(statistics.likeCount, 10)) : 'N/A';
-        const duration = contentDetails.duration ? formatDuration(contentDetails.duration) : 'N/A';
+        const views = statistics.viewCount
+          ? formatNumber(parseInt(statistics.viewCount, 10))
+          : 'N/A';
+        const likes = statistics.likeCount
+          ? formatNumber(parseInt(statistics.likeCount, 10))
+          : 'N/A';
+        const duration = contentDetails.duration
+          ? formatDuration(contentDetails.duration)
+          : 'N/A';
 
         // Create compact one-line output
         const youtubeInfo = `${title} | ${date} | ${views} views | ${likes} likes | ${duration}`;
@@ -277,7 +284,8 @@ async function fetchYouTubeDetails(videoId: string): Promise<string | null> {
  */
 function extractUrls(text: string): string[] {
   // Regular expression to match URLs
-  const urlRegex = /https?:\/\/(?:[-\w.])+(?::[0-9]+)?(?:\/(?:[\w/_.])*(?:\?(?:[\w&=%.])*)?(?:#(?:[\w.])*)?)?/g;
+  const urlRegex =
+    /https?:\/\/(?:[-\w.])+(?::[0-9]+)?(?:\/(?:[\w/_.])*(?:\?(?:[\w&=%.])*)?(?:#(?:[\w.])*)?)?/g;
   const matches = text.match(urlRegex);
   return matches ? matches : [];
 }
@@ -335,7 +343,7 @@ async function fetchUrlTitle(url: string): Promise<string | null> {
 
     // Read a reasonable amount of data (first 100KB should be enough for title)
     const html = await response.text();
-    
+
     // Extract title using regex
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     if (titleMatch && titleMatch[1]) {
@@ -347,14 +355,16 @@ async function fetchUrlTitle(url: string): Promise<string | null> {
         .replace(/&quot;/g, '"')
         .replace(/&#x27;/g, "'")
         .replace(/&#x2F;/g, '/')
-        .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(parseInt(dec, 10)))
+        .replace(/&#(\d+);/g, (match, dec) =>
+          String.fromCharCode(parseInt(dec, 10))
+        )
         .trim();
-      
+
       // Limit title length to prevent spam
       if (title.length > 200) {
         title = title.substring(0, 200) + '...';
       }
-      
+
       return title;
     }
 
@@ -385,7 +395,10 @@ async function registerUrlTitleBroadcast(): Promise<void> {
   };
 
   try {
-    await nats.publish('broadcast.register', JSON.stringify(broadcastRegistration));
+    await nats.publish(
+      'broadcast.register',
+      JSON.stringify(broadcastRegistration)
+    );
     log.info('Registered urltitle broadcast with router', {
       producer: 'urltitle',
     });
@@ -417,12 +430,12 @@ const urlTitleBroadcastSub = nats.subscribe(
 
       // Extract URLs from the message
       const urls = extractUrls(data.text);
-      
+
       // Process each URL
       for (const url of urls) {
         // Fetch the title for this URL
         const title = await fetchUrlTitle(url);
-        
+
         // If we got a title, send it to the channel
         if (title) {
           const response = {
@@ -437,7 +450,7 @@ const urlTitleBroadcastSub = nats.subscribe(
 
           const outgoingTopic = `chat.message.outgoing.${data.platform}.${data.instance}.${data.channel}`;
           void nats.publish(outgoingTopic, JSON.stringify(response));
-          
+
           // Break after first title to avoid spam
           break;
         }
@@ -508,3 +521,45 @@ const statsUptimeSub = nats.subscribe('stats.uptime', (subject, message) => {
   }
 });
 natsSubscriptions.push(statsUptimeSub);
+
+// Help information for urltitle module
+const urltitleHelp = [
+  {
+    command: 'urltitle',
+    descr:
+      'Automatically fetches and displays titles for URLs posted in chat. No command needed - works automatically.',
+    params: [],
+  },
+];
+
+// Function to publish help information
+async function publishHelp(): Promise<void> {
+  const helpUpdate = {
+    from: 'urltitle',
+    help: urltitleHelp,
+  };
+
+  try {
+    await nats.publish('help.update', JSON.stringify(helpUpdate));
+    log.info('Published urltitle help information', {
+      producer: 'urltitle',
+    });
+  } catch (error) {
+    log.error('Failed to publish urltitle help information', {
+      producer: 'urltitle',
+      error: error,
+    });
+  }
+}
+
+// Publish help information at startup
+await publishHelp();
+
+// Subscribe to help update requests
+const helpUpdateRequestSub = nats.subscribe('help.updateRequest', () => {
+  log.info('Received help.updateRequest message', {
+    producer: 'urltitle',
+  });
+  void publishHelp();
+});
+natsSubscriptions.push(helpUpdateRequestSub);
