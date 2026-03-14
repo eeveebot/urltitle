@@ -255,7 +255,7 @@ async function fetchYouTubeDetails(videoId: string): Promise<string | null> {
         const duration = contentDetails.duration ? formatDuration(contentDetails.duration) : 'N/A';
 
         // Create compact one-line output
-        const youtubeInfo = `🎵 ${title} | ${date} | ${views} views | ${likes} likes | ${duration}`;
+        const youtubeInfo = `${title} | ${date} | ${views} views | ${likes} likes | ${duration}`;
 
         resolve(youtubeInfo);
       } catch (err) {
