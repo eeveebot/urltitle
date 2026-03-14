@@ -1,6 +1,6 @@
 {
   "name": "@eeveebot/urltitle",
-  "version": "2.2.8",
+  "version": "2.2.9",
   "description": "URL Title module for eevee.bot",
   "main": "dist/main.mjs",
   "type": "module",
@@ -11,7 +11,7 @@
     "update-libraries": "ncu -u @eeveebot/libeevee js-yaml undici && npm install"
   },
   "dependencies": {
-    "@eeveebot/libeevee": "^3.3.1",
+    "@eeveebot/libeevee": "^3.3.2",
     "irc-colors": "^1.5.0",
     "js-yaml": "^4.1.1",
     "undici": "^7.24.2",
@@ -19,13 +19,13 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
-    "@types/js-yaml": "^4.0.5",
-    "@types/node": "^20.0.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.19.37",
     "@typescript-eslint/eslint-plugin": "^8.57.0",
     "@typescript-eslint/parser": "^8.57.0",
-    "eslint": "^8.0.0",
+    "eslint": "^8.57.1",
     "globals": "^17.4.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=24.0.0"
