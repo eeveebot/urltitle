@@ -162,15 +162,40 @@ if (youtubeApiKey) {
 }
 
 /**
- * Check if URL is a YouTube video
+ * Check if URL is a YouTube video, short, or live stream
  * @param url URL to check
- * @returns YouTube video ID if URL is a YouTube video, null otherwise
+ * @returns Object with video ID and type if URL is a YouTube video, null otherwise
  */
-function getYouTubeVideoId(url: string): string | null {
+function getYouTubeVideoId(url: string): { id: string; type: 'video' | 'short' | 'live' } | null {
+  // Regex for standard YouTube videos
   const youtubeRegex =
     /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
-  const match = url.match(youtubeRegex);
-  return match ? match[1] : null;
+  
+  // Regex for YouTube Shorts
+  const shortsRegex = /youtube\.com\/shorts\/([^"&?/\s]{11})/;
+  
+  // Regex for YouTube Live streams
+  const liveRegex = /youtube\.com\/live\/([^"&?/\s]{11})/;
+  
+  // Check for standard videos
+  const videoMatch = url.match(youtubeRegex);
+  if (videoMatch) {
+    return { id: videoMatch[1], type: 'video' };
+  }
+  
+  // Check for Shorts
+  const shortsMatch = url.match(shortsRegex);
+  if (shortsMatch) {
+    return { id: shortsMatch[1], type: 'short' };
+  }
+  
+  // Check for Live streams
+  const liveMatch = url.match(liveRegex);
+  if (liveMatch) {
+    return { id: liveMatch[1], type: 'live' };
+  }
+  
+  return null;
 }
 
 /**
@@ -253,9 +278,10 @@ interface YouTubeResponse {
  * Fetch YouTube video details
  * @param videoId YouTube video ID
  * @param platform Platform identifier for colorization
+ * @param type Type of YouTube content (video, short, live)
  * @returns Formatted video details or null if failed
  */
-async function fetchYouTubeDetails(videoId: string, platform: string = 'irc'): Promise<string | null> {
+async function fetchYouTubeDetails(videoId: string, platform: string = 'irc', type: 'video' | 'short' | 'live' = 'video'): Promise<string | null> {
   return new Promise((resolve) => {
     if (!youtubeApiKey) {
       resolve(null);
@@ -296,6 +322,14 @@ async function fetchYouTubeDetails(videoId: string, platform: string = 'irc'): P
           ? formatDuration(contentDetails.duration)
           : 'N/A';
 
+        // Add special indicator for Shorts and Live streams
+        let typeIndicator = '';
+        if (type === 'short') {
+          typeIndicator = ' #[SHORT]';
+        } else if (type === 'live') {
+          typeIndicator = ' #[LIVE]';
+        }
+
         // Create structured output with individual elements
         const youtubeElements = {
           title: title,
@@ -306,7 +340,7 @@ async function fetchYouTubeDetails(videoId: string, platform: string = 'irc'): P
         };
 
         // Create formatted output with infographic elements
-        const youtubeInfo = `${title} | 📅 ${date} | 👁️ ${views} | 👍 ${likes} | ⏱️ ${duration}`;
+        const youtubeInfo = `${title}${typeIndicator} | 📅 ${date} | 👁️ ${views} | 👍 ${likes} | ⏱️ ${duration}`;
 
         // Colorize the YouTube info based on platform
         const coloredYoutubeInfo = colorizeYouTubeTitle(youtubeInfo, platform, youtubeElements);
@@ -368,9 +402,9 @@ async function fetchUrlTitle(url: string, platform: string = 'irc'): Promise<str
     }
 
     // Check if this is a YouTube URL first
-    const videoId = getYouTubeVideoId(url);
-    if (videoId && youtubeApiKey) {
-      const youtubeDetails = await fetchYouTubeDetails(videoId, platform);
+    const videoInfo = getYouTubeVideoId(url);
+    if (videoInfo && youtubeApiKey) {
+      const youtubeDetails = await fetchYouTubeDetails(videoInfo.id, platform, videoInfo.type);
       if (youtubeDetails) {
         // YouTube details are already colorized in fetchYouTubeDetails
         // Cache the result
