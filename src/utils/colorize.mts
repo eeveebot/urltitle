@@ -19,6 +19,9 @@ const safeColorFunctions: Record<
   red: ircColorsObj.red,
 };
 
+// Background color function (black)
+const bgBlackFunction = ircColorsObj.bgBlack;
+
 /**
  * Colorize URL title text based on platform
  * @param text Text to colorize
@@ -40,7 +43,12 @@ export function colorizeUrlTitle(text: string, platform: string): string {
       
       // Safety check to ensure we have a valid function
       if (typeof colorFunction === 'function') {
-        const coloredText = colorFunction(text);
+        let coloredText = colorFunction(text);
+        
+        // Apply black background if bgBlack function is available
+        if (typeof bgBlackFunction === 'function') {
+          coloredText = bgBlackFunction(coloredText);
+        }
         
         log.debug('Successfully colorized URL title for IRC', {
           producer: 'urltitle',
@@ -119,7 +127,12 @@ export function colorizeYouTubeTitle(
             safeColorFunctions.purple ? safeColorFunctions.purple(parts[4]) : parts[4]
           ];
           
-          const coloredText = coloredParts.join(' | ');
+          let coloredText = coloredParts.join(' | ');
+          
+          // Apply black background if bgBlack function is available
+          if (typeof bgBlackFunction === 'function') {
+            coloredText = bgBlackFunction(coloredText);
+          }
           
           log.debug('Successfully colorized YouTube title elements for IRC', {
             producer: 'urltitle',
@@ -136,7 +149,12 @@ export function colorizeYouTubeTitle(
       
       // Safety check to ensure we have a valid function
       if (typeof colorFunction === 'function') {
-        const coloredText = colorFunction(title);
+        let coloredText = colorFunction(title);
+        
+        // Apply black background if bgBlack function is available
+        if (typeof bgBlackFunction === 'function') {
+          coloredText = bgBlackFunction(coloredText);
+        }
         
         log.debug('Successfully colorized YouTube title for IRC', {
           producer: 'urltitle',
