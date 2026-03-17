@@ -1,5 +1,4 @@
-import { default as ircColors } from 'irc-colors';
-import { log } from '@eeveebot/libeevee';
+import { ircColors, log } from '@eeveebot/libeevee';
 
 /**
  * Colorize URL title text based on platform
@@ -55,8 +54,8 @@ interface YouTubeElements {
  * @returns Colorized title if platform is IRC, otherwise original title
  */
 export function colorizeYouTubeTitle(
-  title: string, 
-  platform: string, 
+  title: string,
+  platform: string,
   elements?: YouTubeElements
 ): string {
   log.debug('colorizeYouTubeTitle called', {
@@ -82,7 +81,7 @@ export function colorizeYouTubeTitle(
             ircColors.red.bgblack(parts[3]),
             ircColors.purple.bgblack(parts[4]),
           ];
-          
+
           const coloredText = coloredParts.join(' | ');
           return coloredText;
         }

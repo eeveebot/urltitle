@@ -20,14 +20,14 @@ const moduleStartTime = Date.now();
 function cleanupExpiredCache(): void {
   const now = Date.now();
   let cleanedCount = 0;
-  
+
   for (const [url, entry] of titleCache.entries()) {
     if (now - entry.timestamp >= CACHE_DURATION) {
       titleCache.delete(url);
       cleanedCount++;
     }
   }
-  
+
   if (cleanedCount > 0) {
     log.debug('Cleaned expired cache entries', {
       producer: 'urltitle',
@@ -166,35 +166,37 @@ if (youtubeApiKey) {
  * @param url URL to check
  * @returns Object with video ID and type if URL is a YouTube video, null otherwise
  */
-function getYouTubeVideoId(url: string): { id: string; type: 'video' | 'short' | 'live' } | null {
+function getYouTubeVideoId(
+  url: string
+): { id: string; type: 'video' | 'short' | 'live' } | null {
   // Regex for standard YouTube videos
   const youtubeRegex =
     /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
-  
+
   // Regex for YouTube Shorts
   const shortsRegex = /youtube\.com\/shorts\/([^"&?/\s]{11})/;
-  
+
   // Regex for YouTube Live streams
   const liveRegex = /youtube\.com\/live\/([^"&?/\s]{11})/;
-  
+
   // Check for standard videos
   const videoMatch = url.match(youtubeRegex);
   if (videoMatch) {
     return { id: videoMatch[1], type: 'video' };
   }
-  
+
   // Check for Shorts
   const shortsMatch = url.match(shortsRegex);
   if (shortsMatch) {
     return { id: shortsMatch[1], type: 'short' };
   }
-  
+
   // Check for Live streams
   const liveMatch = url.match(liveRegex);
   if (liveMatch) {
     return { id: liveMatch[1], type: 'live' };
   }
-  
+
   return null;
 }
 
@@ -281,7 +283,11 @@ interface YouTubeResponse {
  * @param type Type of YouTube content (video, short, live)
  * @returns Formatted video details or null if failed
  */
-async function fetchYouTubeDetails(videoId: string, platform: string = 'irc', type: 'video' | 'short' | 'live' = 'video'): Promise<string | null> {
+async function fetchYouTubeDetails(
+  videoId: string,
+  platform: string = 'irc',
+  type: 'video' | 'short' | 'live' = 'video'
+): Promise<string | null> {
   return new Promise((resolve) => {
     if (!youtubeApiKey) {
       resolve(null);
@@ -336,14 +342,18 @@ async function fetchYouTubeDetails(videoId: string, platform: string = 'irc', ty
           date: date,
           views: views,
           likes: likes,
-          duration: duration
+          duration: duration,
         };
 
         // Create formatted output with infographic elements
         const youtubeInfo = `${title}${typeIndicator} | 📅 ${date} | 👁️ ${views} | 👍 ${likes} | ⏱️ ${duration}`;
 
         // Colorize the YouTube info based on platform
-        const coloredYoutubeInfo = colorizeYouTubeTitle(youtubeInfo, platform, youtubeElements);
+        const coloredYoutubeInfo = colorizeYouTubeTitle(
+          youtubeInfo,
+          platform,
+          youtubeElements
+        );
 
         resolve(coloredYoutubeInfo);
       } catch (err) {
@@ -377,7 +387,10 @@ function extractUrls(text: string): string[] {
  * @param platform Platform identifier for colorization
  * @returns Title of the page or null if failed
  */
-async function fetchUrlTitle(url: string, platform: string = 'irc'): Promise<string | null> {
+async function fetchUrlTitle(
+  url: string,
+  platform: string = 'irc'
+): Promise<string | null> {
   try {
     // Add URL if it doesn't have a protocol
     let normalizedUrl = url;
@@ -404,7 +417,11 @@ async function fetchUrlTitle(url: string, platform: string = 'irc'): Promise<str
     // Check if this is a YouTube URL first
     const videoInfo = getYouTubeVideoId(url);
     if (videoInfo && youtubeApiKey) {
-      const youtubeDetails = await fetchYouTubeDetails(videoInfo.id, platform, videoInfo.type);
+      const youtubeDetails = await fetchYouTubeDetails(
+        videoInfo.id,
+        platform,
+        videoInfo.type
+      );
       if (youtubeDetails) {
         // YouTube details are already colorized in fetchYouTubeDetails
         // Cache the result
@@ -549,8 +566,11 @@ const urlTitleBroadcastSub = nats.subscribe(
         // If we got a title, send it to the channel
         if (title) {
           // Colorize the title based on platform
-          const coloredTitle = colorizeUrlTitle(`Title: ${title}`, data.platform);
-          
+          const coloredTitle = colorizeUrlTitle(
+            `Title: ${title}`,
+            data.platform
+          );
+
           const response = {
             channel: data.channel,
             network: data.network,
