@@ -1,26 +1,20 @@
 import * as ircColors from 'irc-colors';
 import { log } from '@eeveebot/libeevee';
 
-// Handle both ES module and CommonJS imports
-const ircColorsObj =
-  (ircColors as unknown as { default?: typeof ircColors }).default || ircColors;
-
 // Available irc-colors for URL titles
 // Using a more defensive approach to avoid runtime errors
-const safeColorFunctions: Record<
+const colorFunctions: Record<
   string,
-  ((text: string) => string) | undefined
+  ((text: string) => string)
 > = {
-  blue: ircColorsObj.blue,
-  cyan: ircColorsObj.cyan,
-  green: ircColorsObj.green,
-  yellow: ircColorsObj.yellow,
-  purple: ircColorsObj.purple,
-  red: ircColorsObj.red,
+  blue: ircColors.blue,
+  cyan: ircColors.cyan,
+  green: ircColors.green,
+  yellow: ircColors.yellow,
+  purple: ircColors.purple,
+  red: ircColors.red,
+  bgblack: ircColors.bgblack,
 };
-
-// Background color function (black)
-const bgBlackFunction = ircColorsObj.bgBlack;
 
 /**
  * Colorize URL title text based on platform
@@ -39,16 +33,14 @@ export function colorizeUrlTitle(text: string, platform: string): string {
   if (platform === 'irc') {
     try {
       // Use blue color for URL titles (consistent with existing implementation)
-      const colorFunction = safeColorFunctions.blue;
+      const colorFunction = colorFunctions.blue;
       
       // Safety check to ensure we have a valid function
       if (typeof colorFunction === 'function') {
         let coloredText = colorFunction(text);
         
-        // Apply black background if bgBlack function is available
-        if (typeof bgBlackFunction === 'function') {
-          coloredText = bgBlackFunction(coloredText);
-        }
+        // Apply black background
+        coloredText = colorFunctions.bgblack(coloredText);
         
         log.debug('Successfully colorized URL title for IRC', {
           producer: 'urltitle',
@@ -120,19 +112,17 @@ export function colorizeYouTubeTitle(
           // Apply different colors to each element:
           // Title - cyan, Date - yellow, Views - green, Likes - red, Duration - purple
           const coloredParts = [
-            safeColorFunctions.cyan ? safeColorFunctions.cyan(parts[0]) : parts[0],
-            safeColorFunctions.yellow ? safeColorFunctions.yellow(parts[1]) : parts[1],
-            safeColorFunctions.green ? safeColorFunctions.green(parts[2]) : parts[2],
-            safeColorFunctions.red ? safeColorFunctions.red(parts[3]) : parts[3],
-            safeColorFunctions.purple ? safeColorFunctions.purple(parts[4]) : parts[4]
+            colorFunctions.cyan ? colorFunctions.cyan(parts[0]) : parts[0],
+            colorFunctions.yellow ? colorFunctions.yellow(parts[1]) : parts[1],
+            colorFunctions.green ? colorFunctions.green(parts[2]) : parts[2],
+            colorFunctions.red ? colorFunctions.red(parts[3]) : parts[3],
+            colorFunctions.purple ? colorFunctions.purple(parts[4]) : parts[4]
           ];
           
           let coloredText = coloredParts.join(' | ');
           
-          // Apply black background if bgBlack function is available
-          if (typeof bgBlackFunction === 'function') {
-            coloredText = bgBlackFunction(coloredText);
-          }
+          // Apply black background
+          coloredText = colorFunctions.bgblack(coloredText);
           
           log.debug('Successfully colorized YouTube title elements for IRC', {
             producer: 'urltitle',
@@ -145,16 +135,14 @@ export function colorizeYouTubeTitle(
       }
       
       // Fallback to simple colorization if elements not provided
-      const colorFunction = safeColorFunctions.cyan;
+      const colorFunction = colorFunctions.cyan;
       
       // Safety check to ensure we have a valid function
       if (typeof colorFunction === 'function') {
         let coloredText = colorFunction(title);
         
-        // Apply black background if bgBlack function is available
-        if (typeof bgBlackFunction === 'function') {
-          coloredText = bgBlackFunction(coloredText);
-        }
+        // Apply black background
+        coloredText = colorFunctions.bgblack(coloredText);
         
         log.debug('Successfully colorized YouTube title for IRC', {
           producer: 'urltitle',
