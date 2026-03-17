@@ -1,20 +1,5 @@
-import * as ircColors from 'irc-colors';
+import { default as ircColors } from 'irc-colors';
 import { log } from '@eeveebot/libeevee';
-
-// Available irc-colors for URL titles
-// Using a more defensive approach to avoid runtime errors
-const colorFunctions: Record<
-  string,
-  ((text: string) => string)
-> = {
-  blue: ircColors.blue,
-  cyan: ircColors.cyan,
-  green: ircColors.green,
-  yellow: ircColors.yellow,
-  purple: ircColors.purple,
-  red: ircColors.red,
-  bgblack: ircColors.bgblack,
-};
 
 /**
  * Colorize URL title text based on platform
@@ -32,29 +17,8 @@ export function colorizeUrlTitle(text: string, platform: string): string {
   // Only apply colorization for IRC platform
   if (platform === 'irc') {
     try {
-      // Use blue color for URL titles (consistent with existing implementation)
-      const colorFunction = colorFunctions.blue;
-      
-      // Safety check to ensure we have a valid function
-      if (typeof colorFunction === 'function') {
-        let coloredText = colorFunction(text);
-        
-        // Apply black background
-        coloredText = colorFunctions.bgblack(coloredText);
-        
-        log.debug('Successfully colorized URL title for IRC', {
-          producer: 'urltitle',
-          originalText: text,
-          coloredText: coloredText,
-        });
-        
-        return coloredText;
-      } else {
-        log.error('Blue color function is not available', {
-          producer: 'urltitle',
-        });
-        return text;
-      }
+      const coloredText = ircColors.blue.bgblack(text);
+      return coloredText;
     } catch (error) {
       log.error('Failed to colorize URL title for IRC', {
         producer: 'urltitle',
@@ -112,50 +76,19 @@ export function colorizeYouTubeTitle(
           // Apply different colors to each element:
           // Title - cyan, Date - yellow, Views - green, Likes - red, Duration - purple
           const coloredParts = [
-            colorFunctions.cyan ? colorFunctions.cyan(parts[0]) : parts[0],
-            colorFunctions.yellow ? colorFunctions.yellow(parts[1]) : parts[1],
-            colorFunctions.green ? colorFunctions.green(parts[2]) : parts[2],
-            colorFunctions.red ? colorFunctions.red(parts[3]) : parts[3],
-            colorFunctions.purple ? colorFunctions.purple(parts[4]) : parts[4]
+            ircColors.cyan.bgblack(parts[0]),
+            ircColors.yellow.bgblack(parts[1]),
+            ircColors.green.bgblack(parts[2]),
+            ircColors.red.bgblack(parts[3]),
+            ircColors.purple.bgblack(parts[4]),
           ];
           
-          let coloredText = coloredParts.join(' | ');
-          
-          // Apply black background
-          coloredText = colorFunctions.bgblack(coloredText);
-          
-          log.debug('Successfully colorized YouTube title elements for IRC', {
-            producer: 'urltitle',
-            originalTitle: title,
-            coloredText: coloredText,
-          });
-          
+          const coloredText = coloredParts.join(' | ');
           return coloredText;
         }
-      }
-      
-      // Fallback to simple colorization if elements not provided
-      const colorFunction = colorFunctions.cyan;
-      
-      // Safety check to ensure we have a valid function
-      if (typeof colorFunction === 'function') {
-        let coloredText = colorFunction(title);
-        
-        // Apply black background
-        coloredText = colorFunctions.bgblack(coloredText);
-        
-        log.debug('Successfully colorized YouTube title for IRC', {
-          producer: 'urltitle',
-          originalTitle: title,
-          coloredText: coloredText,
-        });
-        
-        return coloredText;
       } else {
-        log.error('Cyan color function is not available', {
-          producer: 'urltitle',
-        });
-        return title;
+        const coloredText = ircColors.cyan.bgblack(title);
+        return coloredText;
       }
     } catch (error) {
       log.error('Failed to colorize YouTube title for IRC', {
