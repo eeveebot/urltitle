@@ -16,7 +16,7 @@ export function colorizeUrlTitle(text: string, platform: string): string {
   // Only apply colorization for IRC platform
   if (platform === 'irc') {
     try {
-      const coloredText = ircColors.blue.bgblack(text);
+      const coloredText = ircColors.blue(text);
       return coloredText;
     } catch (error) {
       log.error('Failed to colorize URL title for IRC', {
@@ -75,18 +75,18 @@ export function colorizeYouTubeTitle(
           // Apply different colors to each element:
           // Title - cyan, Date - yellow, Views - green, Likes - red, Duration - purple
           const coloredParts = [
-            ircColors.cyan.bgblack(parts[0]),
-            ircColors.yellow.bgblack(parts[1]),
-            ircColors.green.bgblack(parts[2]),
-            ircColors.red.bgblack(parts[3]),
-            ircColors.purple.bgblack(parts[4]),
+            ircColors.cyan(parts[0]),
+            ircColors.yellow(parts[1]),
+            ircColors.green(parts[2]),
+            ircColors.red(parts[3]),
+            ircColors.purple(parts[4]),
           ];
 
           const coloredText = coloredParts.join(' | ');
           return coloredText;
         }
       } else {
-        const coloredText = ircColors.cyan.bgblack(title);
+        const coloredText = ircColors.cyan(title);
         return coloredText;
       }
     } catch (error) {
