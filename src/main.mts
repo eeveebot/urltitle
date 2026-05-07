@@ -401,6 +401,7 @@ async function fetchUrlTitle(
     if (titleMatch && titleMatch[1]) {
       // Decode HTML entities and trim whitespace
       let title = titleMatch[1]
+        .replace(/&mdash;/g, '-')
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
