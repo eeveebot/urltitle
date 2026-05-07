@@ -1,4 +1,4 @@
-import { colorizeForPlatform, colorizeByType } from '@eeveebot/libeevee';
+import { colorizeForPlatform } from '@eeveebot/libeevee';
 
 /**
  * Colorize URL title text based on platform
