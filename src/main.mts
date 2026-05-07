@@ -307,7 +307,7 @@ async function fetchYouTubeDetails(
 function extractUrls(text: string): string[] {
   // Regular expression to match URLs
   const urlRegex =
-    /https?:\/\/(?:[-\w.])+(?::[0-9]+)?(?:\/(?:[\w/_.])*(?:\?(?:[\w&=%.])*)?(?:#(?:[\w.])*)?)?/g;
+    /https?:\/\/(?:[-\w.])+(?::[0-9]+)?(?:\/(?:[\w/_.-])*(?:\?(?:[\w&=%._-])*)?(?:#(?:[\w.-])*)?)?/g;
   const matches = text.match(urlRegex);
   return matches ? matches : [];
 }
