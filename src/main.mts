@@ -4,11 +4,13 @@
 // Listens for messages containing URLs and fetches their titles
 
 import { createRequire } from 'node:module';
-import fs from 'node:fs';
-import * as yaml from 'js-yaml';
-import { NatsClient, log } from '@eeveebot/libeevee';
+import { NatsClient, log, createNatsConnection, registerGracefulShutdown, createModuleMetrics, loadModuleConfig, RateLimitConfig, defaultRateLimit, registerCommand, sendChatMessage, registerHelp, HelpEntry,
+  registerStatsHandlers
+} from '@eeveebot/libeevee';
 import { fetch } from 'undici';
 import { colorizeUrlTitle, colorizeYouTubeTitle } from './utils/colorize.mjs';
+
+const metrics = createModuleMetrics('urltitle');
 
 const require = createRequire(import.meta.url);
 const YouTube = require('youtube-node');
@@ -42,14 +44,6 @@ setInterval(cleanupExpiredCache, 5 * 60 * 1000);
 const urlTitleBroadcastUUID = 'b8f0c9a4-5e1d-4f2a-9c3b-7d8e1f2a3b4c';
 const urlTitleBroadcastDisplayName = 'urltitle';
 
-// Rate limit configuration interface
-interface RateLimitConfig {
-  mode: 'enqueue' | 'drop';
-  level: 'channel' | 'user' | 'global';
-  limit: number;
-  interval: string; // e.g., "30s", "1m", "5m"
-}
-
 // URL Title module configuration interface
 interface UrlTitleConfig {
   ratelimit?: RateLimitConfig;
@@ -69,82 +63,19 @@ const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
 const natsClients: InstanceType<typeof NatsClient>[] = [];
 const natsSubscriptions: Array<Promise<string | boolean>> = [];
 
-/**
- * Load urltitle configuration from YAML file
- * @returns UrlTitleConfig parsed from YAML file
- */
-function loadUrlTitleConfig(): UrlTitleConfig {
-  // Get the config file path from environment variable
-  const configPath = process.env.MODULE_CONFIG_PATH;
-  if (!configPath) {
-    log.warn('MODULE_CONFIG_PATH not set, using default config', {
-      producer: 'urltitle',
-    });
-    return { enabled: true };
-  }
 
-  try {
-    // Read the YAML file
-    const configFile = fs.readFileSync(configPath, 'utf8');
-
-    // Parse the YAML content
-    const config = yaml.load(configFile) as UrlTitleConfig;
-
-    log.info('Loaded urltitle configuration', {
-      producer: 'urltitle',
-      configPath,
-    });
-
-    return config;
-  } catch (error) {
-    log.error('Failed to load urltitle configuration, using defaults', {
-      producer: 'urltitle',
-      configPath,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return { enabled: true };
-  }
-}
 
 //
 // Do whatever teardown is necessary before calling common handler
-process.on('SIGINT', () => {
-  natsClients.forEach((natsClient) => {
-    void natsClient.drain();
-  });
-});
-
-process.on('SIGTERM', () => {
-  natsClients.forEach((natsClient) => {
-    void natsClient.drain();
-  });
-});
+registerGracefulShutdown(natsClients);
 
 //
 // Setup NATS connection
-
-// Get host and token
-const natsHost = process.env.NATS_HOST || false;
-if (!natsHost) {
-  const msg = 'environment variable NATS_HOST is not set.';
-  throw new Error(msg);
-}
-
-const natsToken = process.env.NATS_TOKEN || false;
-if (!natsToken) {
-  const msg = 'environment variable NATS_TOKEN is not set.';
-  throw new Error(msg);
-}
-
-const nats = new NatsClient({
-  natsHost: natsHost as string,
-  natsToken: natsToken as string,
-});
+const nats = await createNatsConnection();
 natsClients.push(nats);
-await nats.connect();
 
 // Load configuration at startup
-const urlTitleConfig = loadUrlTitleConfig();
+const urlTitleConfig = loadModuleConfig<UrlTitleConfig>({});
 
 // Check if module is enabled
 if (urlTitleConfig.enabled === false) {
@@ -571,18 +502,14 @@ const urlTitleBroadcastSub = nats.subscribe(
             data.platform
           );
 
-          const response = {
+          await sendChatMessage(nats, {
             channel: data.channel,
             network: data.network,
             instance: data.instance,
             platform: data.platform,
             text: coloredTitle,
             trace: data.trace,
-            type: 'message.outgoing',
-          };
-
-          const outgoingTopic = `chat.message.outgoing.${data.platform}.${data.instance}.${data.channel}`;
-          void nats.publish(outgoingTopic, JSON.stringify(response));
+          }, metrics);
 
           // Break after first title to avoid spam
           break;
@@ -624,39 +551,12 @@ const controlSubRegisterBroadcastAll = nats.subscribe(
 );
 natsSubscriptions.push(controlSubRegisterBroadcastAll);
 
-// Subscribe to stats.uptime messages and respond with module uptime
-const statsUptimeSub = nats.subscribe('stats.uptime', (subject, message) => {
-  try {
-    const data = JSON.parse(message.string());
-    log.info('Received stats.uptime request', {
-      producer: 'urltitle',
-      replyChannel: data.replyChannel,
-    });
-
-    // Calculate uptime in milliseconds
-    const uptime = Date.now() - moduleStartTime;
-
-    // Send uptime back via the ephemeral reply channel
-    const uptimeResponse = {
-      module: 'urltitle',
-      uptime: uptime,
-      uptimeFormatted: `${Math.floor(uptime / 86400000)}d ${Math.floor((uptime % 86400000) / 3600000)}h ${Math.floor((uptime % 3600000) / 60000)}m ${Math.floor((uptime % 60000) / 1000)}s`,
-    };
-
-    if (data.replyChannel) {
-      void nats.publish(data.replyChannel, JSON.stringify(uptimeResponse));
-    }
-  } catch (error) {
-    log.error('Failed to process stats.uptime request', {
-      producer: 'urltitle',
-      error: error,
-    });
-  }
-});
-natsSubscriptions.push(statsUptimeSub);
+// Subscribe to stats.uptime and stats.emit.request
+const statsSubs = registerStatsHandlers({ nats, moduleName: 'urltitle', startTime: moduleStartTime, metrics });
+natsSubscriptions.push(...statsSubs);
 
 // Help information for urltitle module
-const urltitleHelp = [
+const urltitleHelp: HelpEntry[] = [
   {
     command: 'urltitle',
     descr:
@@ -665,34 +565,6 @@ const urltitleHelp = [
   },
 ];
 
-// Function to publish help information
-async function publishHelp(): Promise<void> {
-  const helpUpdate = {
-    from: 'urltitle',
-    help: urltitleHelp,
-  };
-
-  try {
-    await nats.publish('help.update', JSON.stringify(helpUpdate));
-    log.info('Published urltitle help information', {
-      producer: 'urltitle',
-    });
-  } catch (error) {
-    log.error('Failed to publish urltitle help information', {
-      producer: 'urltitle',
-      error: error,
-    });
-  }
-}
-
-// Publish help information at startup
-await publishHelp();
-
-// Subscribe to help update requests
-const helpUpdateRequestSub = nats.subscribe('help.updateRequest', () => {
-  log.info('Received help.updateRequest message', {
-    producer: 'urltitle',
-  });
-  void publishHelp();
-});
-natsSubscriptions.push(helpUpdateRequestSub);
+// Register help information (publishes immediately and subscribes to help.updateRequest)
+const helpSubs = await registerHelp(nats, 'urltitle', urltitleHelp, metrics);
+natsSubscriptions.push(...helpSubs);
