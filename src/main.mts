@@ -63,7 +63,15 @@ const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
 const natsClients: InstanceType<typeof NatsClient>[] = [];
 const natsSubscriptions: Array<Promise<string | boolean>> = [];
 
+// Initialize system metrics
+initializeSystemMetrics('urltitle');
 
+// Setup HTTP server for metrics and health checks
+setupHttpServer({
+  port: process.env.HTTP_API_PORT || '9000',
+  serviceName: 'urltitle',
+  natsClients: natsClients,
+});
 
 //
 // Do whatever teardown is necessary before calling common handler
