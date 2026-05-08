@@ -411,6 +411,7 @@ async function fetchUrlTitle(
       let title = titleMatch[1]
         .replace(/&mdash;/g, '-')
         .replace(/&amp;/g, '&')
+        .replace(/&apos;/g, "'")
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
