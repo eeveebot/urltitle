@@ -5,7 +5,7 @@
 
 import { createRequire } from 'node:module';
 import { NatsClient, log, createNatsConnection, registerGracefulShutdown, createModuleMetrics, loadModuleConfig, RateLimitConfig, sendChatMessage, registerHelp, HelpEntry,
-  registerStatsHandlers
+  registerStatsHandlers, initializeSystemMetrics, setupHttpServer
 } from '@eeveebot/libeevee';
 import { fetch } from 'undici';
 import { colorizeUrlTitle, colorizeYouTubeTitle } from './utils/colorize.mjs';
