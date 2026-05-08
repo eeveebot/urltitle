@@ -1,6 +1,6 @@
 {
   "name": "@eeveebot/urltitle",
-  "version": "2.5.4",
+  "version": "2.5.5",
   "description": "URL Title module for eevee.bot",
   "main": "dist/main.mjs",
   "type": "module",
