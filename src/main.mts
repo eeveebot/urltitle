@@ -5,7 +5,7 @@
 
 import { createRequire } from 'node:module';
 import { NatsClient, log, createNatsConnection, registerGracefulShutdown, createModuleMetrics, loadModuleConfig, RateLimitConfig, sendChatMessage, registerHelp, HelpEntry,
-  registerStatsHandlers, initializeSystemMetrics, setupHttpServer
+  registerStatsHandlers, registerBroadcast, initializeSystemMetrics, setupHttpServer
 } from '@eeveebot/libeevee';
 import { fetch } from 'undici';
 import { colorizeUrlTitle, colorizeYouTubeTitle } from './utils/colorize.mjs';
@@ -447,39 +447,13 @@ async function fetchUrlTitle(
   }
 }
 
-// Function to register the urltitle broadcast with the router
-async function registerUrlTitleBroadcast(): Promise<void> {
-  const broadcastRegistration = {
-    type: 'broadcast.register',
-    broadcastUUID: urlTitleBroadcastUUID,
-    broadcastDisplayName: urlTitleBroadcastDisplayName,
-    platform: '.*', // Match all platforms
-    network: '.*', // Match all networks
-    instance: '.*', // Match all instances
-    channel: '.*', // Match all channels
-    user: '.*', // Match all users
-    messageFilterRegex: 'https?://', // Only messages containing URLs
-    ttl: 120000, // 2 minutes TTL
-  };
-
-  try {
-    await nats.publish(
-      'broadcast.register',
-      JSON.stringify(broadcastRegistration)
-    );
-    log.info('Registered urltitle broadcast with router', {
-      producer: 'urltitle',
-    });
-  } catch (error) {
-    log.error('Failed to register urltitle broadcast', {
-      producer: 'urltitle',
-      error: error,
-    });
-  }
-}
-
-// Register broadcast at startup
-await registerUrlTitleBroadcast();
+// Register broadcast at startup using registerBroadcast helper
+const urltitleBroadcastSubs = await registerBroadcast(nats, {
+  broadcastUUID: urlTitleBroadcastUUID,
+  broadcastDisplayName: urlTitleBroadcastDisplayName,
+  messageFilterRegex: 'https?://',
+}, metrics);
+natsSubscriptions.push(...urltitleBroadcastSubs);
 
 // Subscribe to broadcast messages
 const urlTitleBroadcastSub = nats.subscribe(
@@ -535,31 +509,7 @@ const urlTitleBroadcastSub = nats.subscribe(
 );
 natsSubscriptions.push(urlTitleBroadcastSub);
 
-// Subscribe to control messages for re-registering broadcasts
-const controlSubRegisterBroadcastUrlTitle = nats.subscribe(
-  `control.registerBroadcasts.${urlTitleBroadcastDisplayName}`,
-  () => {
-    log.info(
-      `Received control.registerBroadcasts.${urlTitleBroadcastDisplayName} control message`,
-      {
-        producer: 'urltitle',
-      }
-    );
-    void registerUrlTitleBroadcast();
-  }
-);
-natsSubscriptions.push(controlSubRegisterBroadcastUrlTitle);
-
-const controlSubRegisterBroadcastAll = nats.subscribe(
-  'control.registerBroadcasts',
-  () => {
-    log.info('Received control.registerBroadcasts control message', {
-      producer: 'urltitle',
-    });
-    void registerUrlTitleBroadcast();
-  }
-);
-natsSubscriptions.push(controlSubRegisterBroadcastAll);
+// (control.registerBroadcasts subscriptions are now handled by registerBroadcast helper)
 
 // Subscribe to stats.uptime and stats.emit.request
 const statsSubs = registerStatsHandlers({ nats, moduleName: 'urltitle', startTime: moduleStartTime, metrics });
