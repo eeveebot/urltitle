@@ -5,7 +5,8 @@
 
 import { createRequire } from 'node:module';
 import { NatsClient, log, createNatsConnection, registerGracefulShutdown, createModuleMetrics, loadModuleConfig, RateLimitConfig, sendChatMessage, registerHelp, HelpEntry,
-  registerStatsHandlers, registerBroadcast, initializeSystemMetrics, setupHttpServer
+  registerStatsHandlers, registerBroadcast, initializeSystemMetrics, setupHttpServer,
+  NatsSubscriptionResult,
 } from '@eeveebot/libeevee';
 import { fetch } from 'undici';
 import { colorizeUrlTitle, colorizeYouTubeTitle } from './utils/colorize.mjs';
@@ -61,7 +62,7 @@ const titleCache = new Map<string, CacheEntry>();
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 const natsClients: InstanceType<typeof NatsClient>[] = [];
-const natsSubscriptions: Array<Promise<string | boolean>> = [];
+const natsSubscriptions: Array<Promise<NatsSubscriptionResult>> = [];
 
 // Initialize system metrics
 initializeSystemMetrics('urltitle');
