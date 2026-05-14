@@ -200,6 +200,7 @@ interface YouTubeVideoItem {
   snippet: {
     title: string;
     publishedAt: string;
+    channelTitle: string;
   };
   statistics: {
     viewCount?: string;
@@ -257,6 +258,7 @@ async function fetchYouTubeDetails(
         const contentDetails = item.contentDetails;
 
         const title = snippet.title;
+        const creator = snippet.channelTitle;
         const date = formatDate(snippet.publishedAt);
         const views = statistics.viewCount
           ? formatNumber(parseInt(statistics.viewCount, 10))
@@ -279,6 +281,7 @@ async function fetchYouTubeDetails(
         // Create structured output with individual elements
         const youtubeElements = {
           title: title,
+          creator: creator,
           date: date,
           views: views,
           likes: likes,
@@ -286,7 +289,7 @@ async function fetchYouTubeDetails(
         };
 
         // Create formatted output with infographic elements
-        const youtubeInfo = `${title}${typeIndicator} | 📅 ${date} | 👁️ ${views} | 👍 ${likes} | ⏱️ ${duration}`;
+        const youtubeInfo = `${title}${typeIndicator} | 👤 ${creator} | 📅 ${date} | 👁️ ${views} | 👍 ${likes} | ⏱️ ${duration}`;
 
         // Colorize the YouTube info based on platform
         const coloredYoutubeInfo = colorizeYouTubeTitle(

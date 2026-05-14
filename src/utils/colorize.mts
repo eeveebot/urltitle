@@ -9,6 +9,7 @@ export function colorizeUrlTitle(text: string, platform: string): string {
 
 interface YouTubeElements {
   title: string;
+  creator: string;
   date: string;
   views: string;
   likes: string;
@@ -27,13 +28,14 @@ export function colorizeYouTubeTitle(
 
   if (elements) {
     const parts = title.split(' | ');
-    if (parts.length === 5) {
+    if (parts.length === 6) {
       const coloredParts = [
-        colorizeForPlatform(parts[0], platform, 'cyan'),
-        colorizeForPlatform(parts[1], platform, 'yellow'),
-        colorizeForPlatform(parts[2], platform, 'green'),
-        colorizeForPlatform(parts[3], platform, 'red'),
-        colorizeForPlatform(parts[4], platform, 'purple'),
+        colorizeForPlatform(parts[0], platform, 'cyan'),       // title
+        colorizeForPlatform(parts[1], platform, 'brown'),      // creator
+        colorizeForPlatform(parts[2], platform, 'yellow'),     // date
+        colorizeForPlatform(parts[3], platform, 'green'),      // views
+        colorizeForPlatform(parts[4], platform, 'red'),        // likes
+        colorizeForPlatform(parts[5], platform, 'purple'),     // duration
       ];
       return coloredParts.join(' | ');
     }
