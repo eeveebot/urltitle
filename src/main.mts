@@ -3,7 +3,6 @@
 // URL Title module
 // Listens for messages containing URLs and fetches their titles
 
-import { createRequire } from 'node:module';
 import { NatsClient, log, createNatsConnection, registerGracefulShutdown, createModuleMetrics, loadModuleConfig, RateLimitConfig, sendChatMessage, registerHelp, HelpEntry,
   registerStatsHandlers, registerBroadcast, initializeSystemMetrics, setupHttpServer,
   NatsSubscriptionResult,
@@ -12,9 +11,6 @@ import { fetch } from 'undici';
 import { colorizeUrlTitle, colorizeYouTubeTitle } from './utils/colorize.mjs';
 
 const metrics = createModuleMetrics('urltitle');
-
-const require = createRequire(import.meta.url);
-const YouTube = require('youtube-node');
 
 // Record module startup time for uptime tracking
 const moduleStartTime = Date.now();
@@ -94,12 +90,7 @@ if (urlTitleConfig.enabled === false) {
   process.exit(0);
 }
 
-// Initialize YouTube client
-const youtube = new YouTube();
 const youtubeApiKey = process.env.YOUTUBE_API_KEY;
-if (youtubeApiKey) {
-  youtube.setKey(youtubeApiKey);
-}
 
 /**
  * Check if URL is a YouTube video, short, or live stream
@@ -229,86 +220,81 @@ async function fetchYouTubeDetails(
   platform: string = 'irc',
   type: 'video' | 'short' | 'live' = 'video'
 ): Promise<string | null> {
-  return new Promise((resolve) => {
-    if (!youtubeApiKey) {
-      resolve(null);
-      return;
+  if (!youtubeApiKey) {
+    return null;
+  }
+
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoId}&key=${youtubeApiKey}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      log.debug('Failed to fetch YouTube video details', {
+        producer: 'urltitle',
+        videoId,
+        status: response.status,
+      });
+      return null;
     }
 
-    youtube.getById(videoId, (error: Error, result: YouTubeResponse) => {
-      if (error) {
-        log.debug('Failed to fetch YouTube video details', {
-          producer: 'urltitle',
-          videoId,
-          error: error.message,
-        });
-        resolve(null);
-        return;
-      }
+    const result = (await response.json()) as YouTubeResponse;
+    const item = result.items[0];
+    if (!item) {
+      return null;
+    }
 
-      try {
-        const item = result.items[0];
-        if (!item) {
-          resolve(null);
-          return;
-        }
+    const snippet = item.snippet;
+    const statistics = item.statistics;
+    const contentDetails = item.contentDetails;
 
-        const snippet = item.snippet;
-        const statistics = item.statistics;
-        const contentDetails = item.contentDetails;
+    const title = snippet.title;
+    const creator = snippet.channelTitle;
+    const date = formatDate(snippet.publishedAt);
+    const views = statistics.viewCount
+      ? formatNumber(parseInt(statistics.viewCount, 10))
+      : 'N/A';
+    const likes = statistics.likeCount
+      ? formatNumber(parseInt(statistics.likeCount, 10))
+      : 'N/A';
+    const duration = contentDetails.duration
+      ? formatDuration(contentDetails.duration)
+      : 'N/A';
 
-        const title = snippet.title;
-        const creator = snippet.channelTitle;
-        const date = formatDate(snippet.publishedAt);
-        const views = statistics.viewCount
-          ? formatNumber(parseInt(statistics.viewCount, 10))
-          : 'N/A';
-        const likes = statistics.likeCount
-          ? formatNumber(parseInt(statistics.likeCount, 10))
-          : 'N/A';
-        const duration = contentDetails.duration
-          ? formatDuration(contentDetails.duration)
-          : 'N/A';
+    // Add special indicator for Shorts and Live streams
+    let typeIndicator = '';
+    if (type === 'short') {
+      typeIndicator = ' #[SHORT]';
+    } else if (type === 'live') {
+      typeIndicator = ' #[LIVE]';
+    }
 
-        // Add special indicator for Shorts and Live streams
-        let typeIndicator = '';
-        if (type === 'short') {
-          typeIndicator = ' #[SHORT]';
-        } else if (type === 'live') {
-          typeIndicator = ' #[LIVE]';
-        }
+    // Create structured output with individual elements
+    const youtubeElements = {
+      title: title,
+      creator: creator,
+      date: date,
+      views: views,
+      likes: likes,
+      duration: duration,
+    };
 
-        // Create structured output with individual elements
-        const youtubeElements = {
-          title: title,
-          creator: creator,
-          date: date,
-          views: views,
-          likes: likes,
-          duration: duration,
-        };
+    // Create formatted output with infographic elements
+    const youtubeInfo = `${title}${typeIndicator} | 👤 ${creator} | 📅 ${date} | 👁️ ${views} | 👍 ${likes} | ⏱️ ${duration}`;
 
-        // Create formatted output with infographic elements
-        const youtubeInfo = `${title}${typeIndicator} | 👤 ${creator} | 📅 ${date} | 👁️ ${views} | 👍 ${likes} | ⏱️ ${duration}`;
-
-        // Colorize the YouTube info based on platform
-        const coloredYoutubeInfo = colorizeYouTubeTitle(
-          youtubeInfo,
-          platform,
-          youtubeElements
-        );
-
-        resolve(coloredYoutubeInfo);
-      } catch (err) {
-        log.debug('Error processing YouTube video details', {
-          producer: 'urltitle',
-          videoId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        resolve(null);
-      }
+    // Colorize the YouTube info based on platform
+    return colorizeYouTubeTitle(
+      youtubeInfo,
+      platform,
+      youtubeElements
+    );
+  } catch (error) {
+    log.debug('Failed to fetch YouTube video details', {
+      producer: 'urltitle',
+      videoId,
+      error: error instanceof Error ? error.message : String(error),
     });
-  });
+    return null;
+  }
 }
 
 /**
