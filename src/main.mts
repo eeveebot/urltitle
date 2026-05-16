@@ -4,7 +4,7 @@
 // Listens for messages containing URLs and fetches their titles
 
 import {
-  NatsClient, log, createNatsConnection, registerGracefulShutdown, createModuleMetrics, loadModuleConfig, RateLimitConfig, sendChatMessage, registerHelp, HelpEntry,
+  NatsClient, log, createNatsConnection, registerGracefulShutdown, createModuleMetrics, sendChatMessage, registerHelp, HelpEntry,
   registerStatsHandlers, registerBroadcast, initializeSystemMetrics, setupHttpServer,
   NatsSubscriptionResult,
 } from '@eeveebot/libeevee';
@@ -44,12 +44,6 @@ setInterval(cleanupExpiredCache, 5 * 60 * 1000);
 const urlTitleBroadcastUUID = 'b8f0c9a4-5e1d-4f2a-9c3b-7d8e1f2a3b4c';
 const urlTitleBroadcastDisplayName = 'urltitle';
 
-// URL Title module configuration interface
-interface UrlTitleConfig {
-  ratelimit?: RateLimitConfig;
-  enabled?: boolean;
-}
-
 // Cache entry interface
 interface CacheEntry {
   title: string;
@@ -81,17 +75,6 @@ registerGracefulShutdown(natsClients);
 // Setup NATS connection
 const nats = await createNatsConnection();
 natsClients.push(nats);
-
-// Load configuration at startup
-const urlTitleConfig = loadModuleConfig<UrlTitleConfig>({});
-
-// Check if module is enabled
-if (urlTitleConfig.enabled === false) {
-  log.info('URL Title module is disabled, exiting', {
-    producer: 'urltitle',
-  });
-  process.exit(0);
-}
 
 const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
