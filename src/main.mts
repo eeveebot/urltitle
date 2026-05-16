@@ -3,10 +3,12 @@
 // URL Title module
 // Listens for messages containing URLs and fetches their titles
 
-import { NatsClient, log, createNatsConnection, registerGracefulShutdown, createModuleMetrics, loadModuleConfig, RateLimitConfig, sendChatMessage, registerHelp, HelpEntry,
+import {
+  NatsClient, log, createNatsConnection, registerGracefulShutdown, createModuleMetrics, loadModuleConfig, RateLimitConfig, sendChatMessage, registerHelp, HelpEntry,
   registerStatsHandlers, registerBroadcast, initializeSystemMetrics, setupHttpServer,
   NatsSubscriptionResult,
 } from '@eeveebot/libeevee';
+import fs from 'node:fs';
 import { fetch } from 'undici';
 import { colorizeUrlTitle, colorizeYouTubeTitle } from './utils/colorize.mjs';
 
@@ -14,6 +16,7 @@ const metrics = createModuleMetrics('urltitle');
 
 // Record module startup time for uptime tracking
 const moduleStartTime = Date.now();
+const moduleVersion = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version as string;
 
 // Periodic cache cleanup function
 function cleanupExpiredCache(): void {
@@ -502,7 +505,7 @@ natsSubscriptions.push(urlTitleBroadcastSub);
 // (control.registerBroadcasts subscriptions are now handled by registerBroadcast helper)
 
 // Subscribe to stats.uptime and stats.emit.request
-const statsSubs = registerStatsHandlers({ nats, moduleName: 'urltitle', startTime: moduleStartTime, metrics });
+const statsSubs = registerStatsHandlers({ nats, moduleName: 'urltitle', startTime: moduleStartTime, version: moduleVersion, metrics });
 natsSubscriptions.push(...statsSubs);
 
 // Help information for urltitle module
