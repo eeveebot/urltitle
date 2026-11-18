@@ -8,10 +8,10 @@
     "build": "npm run test && npx tsc",
     "dev": "tsc --watch & node --loader ts-node/esm src/main.mts",
     "test": "npx eslint src/",
-    "update-libraries": "ncu -u @eeveebot/libeevee js-yaml undici && npm install"
+    "update-libraries": "npm install --save @eeveebot/libeevee@latest"
   },
   "dependencies": {
-    "@eeveebot/libeevee": "^4.3.0",
+    "@eeveebot/libeevee": "^4.4.0",
     "undici": "^7.24.4"
   },
   "devDependencies": {
@@ -27,5 +27,6 @@
   },
   "engines": {
     "node": ">=24.0.0"
-  }
+  },
+  "license": "AGPL-3.0-or-later"
 }
